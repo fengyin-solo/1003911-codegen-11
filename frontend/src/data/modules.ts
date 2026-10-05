@@ -113,6 +113,18 @@ export const MODULES: ModuleMeta[] = [
     metrics: ["项目总数", "施工中数", "待验收数"],
   },
   {
+    key: "exchange",
+    name: "监理交换箱",
+    entity: "交换待补项",
+    desc: "维护监理交换待补项，围绕批次号、项目编号、待补影像、现场索引做登记、筛选与状态流转。",
+    fields: ["批次号", "项目编号", "待补影像", "进度要求", "合同金额", "现场索引", "回传状态", "回传时间"],
+    statuses: ["待回传", "已回传", "已核销"],
+    // 打包、回传、核销都跨模块联动，统一走 api/exchange-service.ts，不走通用动作流转。
+    actions: [],
+    actionTargets: {},
+    metrics: ["待补项总数", "待回传数", "已核销数"],
+  },
+  {
     key: "acceptance",
     name: "工程验收",
     entity: "验收报告",

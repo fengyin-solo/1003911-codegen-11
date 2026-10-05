@@ -41,7 +41,13 @@ export function listRows(key: string): EntryRow[] {
 }
 
 export function saveRows(key: string, rows: EntryRow[]): void {
-  const next = { ...allRows(), [key]: rows }
+  saveAll({ [key]: rows })
+}
+
+// 多模块一次落库：所有模块本来就在同一个存储对象里，合并后只写一次，
+// 跨模块的联动变更（如监理交换核销）要么整体生效，要么整体不生效。
+export function saveAll(parts: Record<string, EntryRow[]>): void {
+  const next = { ...allRows(), ...parts }
   cache = next
   if (typeof window !== 'undefined' && window.localStorage) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
