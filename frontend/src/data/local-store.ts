@@ -48,6 +48,15 @@ export function saveRows(key: string, rows: EntryRow[]): void {
   }
 }
 
+// 多模块一次性写入：核销这类跨模块操作要么全落库要么全不落，避免写一半。
+export function saveMany(entries: Record<string, EntryRow[]>): void {
+  const next = { ...allRows(), ...entries }
+  cache = next
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  }
+}
+
 export function resetRows(key: string): EntryRow[] {
   const rows = clone(SEED_ROWS[key] ?? [])
   saveRows(key, rows)

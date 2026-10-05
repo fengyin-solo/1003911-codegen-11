@@ -7,6 +7,10 @@
       </div>
       <div class="page-actions">
         <button class="btn primary" type="button" @click="openCreate">登记治理工程项目</button>
+        <button class="btn" type="button" :disabled="!selectedIds.length" @click="createBatch">
+          生成监理交换包
+        </button>
+        <RouterLink class="btn" to="/exchange">监理交换箱</RouterLink>
         <button class="btn" type="button" @click="exportRows">导出治理工程清单</button>
       </div>
     </header>
@@ -36,6 +40,14 @@
     <table class="data-table">
       <thead>
         <tr>
+          <th class="check-col">
+            <input
+              type="checkbox"
+              :checked="allSelected"
+              title="全选"
+              @change="toggleAll"
+            />
+          </th>
           <th v-for="column in columns" :key="column">{{ column }}</th>
           <th>当前状态</th>
           <th>可执行动作</th>
@@ -43,6 +55,13 @@
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="String(row.id)">
+          <td class="check-col">
+            <input
+              type="checkbox"
+              :checked="selectedIds.includes(Number(row.id))"
+              @change="toggleSelect(Number(row.id))"
+            />
+          </td>
           <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
           <td>{{ row.status }}</td>
           <td class="row-actions">
@@ -58,13 +77,14 @@
           </td>
         </tr>
         <tr v-if="!rows.length">
-          <td :colspan="columns.length + 2" class="empty-state">暂无治理工程数据，可先登记治理工程项目</td>
+          <td :colspan="columns.length + 3" class="empty-state">暂无治理工程数据，可先登记治理工程项目</td>
         </tr>
       </tbody>
     </table>
 
     <footer class="page-foot">
       <span>共 {{ total }} 条治理工程记录</span>
+      <span v-if="notice" class="ok-text">{{ notice }}</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
   </section>
@@ -79,6 +99,7 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import { createExchangeBatch } from '@/api/exchange-service'
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('engineering')
@@ -90,14 +111,41 @@ const stats = [{"label": "项目总数", "value": 0}, {"label": "施工中数", 
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
+const notice = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+const selectedIds = ref<number[]>([])
+const allSelected = computed(
+  () => rows.value.length > 0 && selectedIds.value.length === rows.value.length,
+)
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
     count: rows.value.filter((row) => String(row.status) === status).length,
   })),
 )
+
+function toggleSelect(id: number) {
+  selectedIds.value = selectedIds.value.includes(id)
+    ? selectedIds.value.filter((item) => item !== id)
+    : [...selectedIds.value, id]
+}
+
+function toggleAll() {
+  selectedIds.value = allSelected.value ? [] : rows.value.map((row) => Number(row.id))
+}
+
+function createBatch() {
+  errorMessage.value = ''
+  notice.value = ''
+  const result = createExchangeBatch(selectedIds.value)
+  if (result.ok) {
+    selectedIds.value = []
+    notice.value = result.message
+  } else {
+    errorMessage.value = result.message
+  }
+}
 
 function resetFilters() {
   filters.value = {}
@@ -114,6 +162,7 @@ function openCreate() {
 
 function runAction(action: string, row: EntryRow) {
   errorMessage.value = ''
+  notice.value = ''
   const result = applyAction(meta.key, Number(row.id), action)
   if (!result.ok) {
     errorMessage.value = result.message
@@ -124,6 +173,7 @@ function runAction(action: string, row: EntryRow) {
 
 function reload() {
   errorMessage.value = ''
+  notice.value = ''
   try {
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
